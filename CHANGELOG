@@ -1,0 +1,8 @@
+- V 0.5 (08.12.2008)
+====================
+* P_HP_HOOKS als unerwuenschte Property hinzugefuegt, da es mit AddHpHook()
+  und RemoveHpHook() ein Interface dafuer gibt.
+* Properties des alten Hooksystems (P_TMP_MOVE_HOOK, P_TMP_DIE_HOOK, 
+  P_TMP_DEFEND_HOOK, P_TMP_ATTACK_HOOK) als unerwuenschte Properties
+  hinzugefuegt, da es ein neues Hooksystem gibt, bei welchem ein Hook nicht
+  direkt mit einem Objekt blockiert ist.

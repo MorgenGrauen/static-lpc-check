@@ -1,0 +1,268 @@
+#!/bin/bash
+
+export CHECKERHOME=`pwd`
+export CODEFILES="${CHECKERHOME}/CODEFILES"
+export HEADERFILES="${CHECKERHOME}/HEADERFILES"
+#export LPCFILES="${HEADERFILES} ${CODEFILES}"
+export LPCFILES="${CHECKERHOME}/LPCFILES"
+export MUDLIB="/home/mud/mudlib"
+export LOGS="${CHECKERHOME}/logs"
+
+LEVEL1="change_required"
+LEVEL2="formatting"
+LEVEL5="please_check"
+LEVEL10="cosmetics"
+
+echo -ne "LPC-Source Checker V0.3 (2008-01-09)\n\n"
+
+usage() {
+    echo -ne "usage: ./check <region> <logfile>\n"
+    exit
+}
+
+# Parameter pruefen, ansonsten usage ausgeben
+if [ -z ${1} ] || [ -z ${2} ]
+then
+	usage
+fi
+
+# gucken ob das Logverzeichnis da ist, wenn nein, dann anlegen
+if [ ! -d ${LOGS} ]
+then
+	mkdir -p ${LOGS}
+fi
+
+# rudimentaerer check ob die Mudlib da liegt, wo ${MUDLIB} hinzeigt
+if [ ! -d ${MUDLIB} ]
+then
+	echo -ne "No mudlib found in ${MUDLIB}\n"
+	exit
+fi
+
+# alten Kram entsorgen
+if [ -f ${CODEFILES} ]
+then
+	rm ${CODEFILES}
+fi
+
+if [ -f ${HEADERFILES} ]
+then
+	rm ${HEADERFILES}
+fi
+
+if [ -f ${LPCFILES} ]
+then
+	rm ${LPCFILES}
+fi
+
+echo -ne "Checking the MorgenGrauen Mudlib in ${MUDLIB}\n"
+echo -ne "Checking in ${1} (${MUDLIB}${1})\n"
+
+cd ${MUDLIB}
+
+# Dateiliste erstellen
+echo -ne "Creating file list...\n"
+
+find ./${1} -type f -name "*.c" -print > ${CODEFILES}
+find ./${1} -type f -name "*.h" -print > ${HEADERFILES}
+
+# irgendwie unschoen
+cat ${CODEFILES} ${HEADERFILES} > ${LPCFILES}
+
+# eigentlich haette man das alles in einem abfackeln koennen, aber dann gaebe
+# es keine Ueberschriften ueber den einzelnen Punkten
+
+# LEVEL 1 CHECKS (change required)
+
+# Umlaute
+echo -ne "\n\nPruefe auf Umlaute...\n" | tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn '[üöäÜÖÄß]' $line | cut -d : -f 1-2 >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# lambda()
+echo -ne "\n\nPruefe auf lambda()...\n" | tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn 'lambda(' $line| cut -d : -f 1-2 >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# Pfade in /players/
+echo -ne "\n\nPruefe auf Pfade in /players/...\n" | tee -a ${LOGS}/${2}.${LEVEL1} 
+while read line
+do
+	grep -Hn '/players/' $line| cut -d : -f 1-2 >> ${LOGS}/${2}.${LEVEL1} 
+done < ${LPCFILES}
+
+# fehlende #pragma strong_types/strict_types
+echo -ne "\n\nFiles ohne #pragma strong_types oder strict_types...\n" | tee -a ${LOGS}/${2}.${LEVEL1} 
+while read line
+do
+	grep -L '#pragma.\(strong\|strict\)_types' $line | sort \
+		>> ${LOGS}/${2}.${LEVEL1} 
+done < ${CODEFILES}
+
+# direkte Verwendung von do_damage()
+echo -ne "\n\nPruefe auf direkte Verwendung von do_damage()...\n" |\
+	     tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn 'do_damage(' $line | cut -d : -f 1-2 >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# Unerwuenschte oder obsolete lfuns
+echo -ne "\n\nPruefe auf unerwuenschte oder obsolete lfuns...\n" |\
+	tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn -f ${CHECKERHOME}/bad_lfun.list $line >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# Unerwuenschte oder obsolete efuns
+echo -ne "\n\nPruefe auf unerwuenschte oder obsolete efuns...\n" |\
+	tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn -f ${CHECKERHOME}/bad_efun.list $line >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# Unerwuenschte oder obsolete Properties
+echo -ne "\n\nPruefe auf unerwuenschte oder obsolete Properties...\n" |\
+	tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn -f ${CHECKERHOME}/bad_prop.list $line >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# Unerwuenschte Events
+echo -ne "\n\nPruefe auf unerwuenschte Eventnamen...\n" | tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn -f ${CHECKERHOME}/bad_events.list $line >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# Keine clones von /std/thing
+echo -ne "\n\nPruefe auf Clones von /std/thing...\n" |\
+	     tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn 'clone_object(.*/std/thing.*)' $line | cut -d : -f 1-2 \
+	     >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# ueberschriebenes move()
+echo -ne "\n\nPruefe auf ueberschriebenes move() (deprecated)...\n" |\
+	    tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn 'int.*move(.*mixed.*int.*)' $line | cut -d : -f 1-2 \
+	     >> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# wird geerbtes PreventMove gerufen?
+echo -ne "\n\nUeberschriebenes PreventMove() ohne geerbetes zu rufen...\n" |\
+	     tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep 'Prevent(.*object.*object.*int)' $line > ${CHECKERHOME}/check.tmp
+	grep -L '::PreventMove(' $line > ${CHECKERHOME}/check.tmp2
+done  < ${LPCFILES}
+# nur Zeilen ausgeben, die nicht im 2. File vorkommen
+grep -v -f ${CHECKERHOME}/check.tmp2 ${CHECKERHOME}/check.tmp | \
+	tee -a ${LOGS}/${2}.${LEVEL1}
+rm ${CHECKERHOME}/check.tmp*
+
+echo -ne "\n\nUeberschriebenes NotifyMove() ohne geerbetes zu rufen...\n" |\
+	     tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep 'NotfiyMove(.*object.*object.*int)' $line > ${CHECKERHOME}/check.tmp
+	grep -L '::NotifyMove(' $line > ${CHECKERHOME}/check.tmp2
+done < ${LPCFILES}
+grep -v -f ${CHECKERHOME}/check.tmp2 ${CHECKERHOME}/check.tmp \
+	>> ${LOGS}/${2}.${LEVEL1}
+rm ${CHECKERHOME}/check.tmp*
+
+# call_other(x, "???") ist obsolet
+echo -ne "\n\nPruefe auf call_other(x, "???") (obsolet)...\n" |\
+	tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn 'call_other(.*???.*)' $line | cut -d : -f 1-2 \
+	>> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# Alte Syntax der Inline-Closures
+echo -ne "\n\nPruefe auf obsolete Inline-Closures ( (: :) )...\n" | \
+	     tee -a ${LOGS}/${2}.${LEVEL1}
+while read line
+do
+	grep -Hn '(: ' $line | cut -d : -f 1-2 \
+			>> ${LOGS}/${2}.${LEVEL1}
+done < ${LPCFILES}
+
+# LEVEL 2 CHECKS
+# Tabulatoren
+echo -ne "\n\nPruefe auf Tabulatoren...\n" | tee -a ${LOGS}/${2}.${LEVEL2}
+while read line
+do
+	grep -Hn $'\t' $line | cut -d : -f 1-2 >> ${LOGS}/${2}.${LEVEL2}
+done < ${LPCFILES}
+
+# Zeilen > 78 Zeichen
+echo -ne "\n\nPruefe auf Zeilen > 78 Zeichen...\n" | tee -a ${LOGS}/${2}.${LEVEL2}
+while read line
+do
+	grep -Hn '.\{79,\}' $line| cut -d : -f 1-2 >> ${LOGS}/${2}.${LEVEL2}
+done < ${LPCFILES}
+
+# LEVEL 5 CHECKS
+# Header mit #pragmas
+echo -ne "\n\nHeader (*.h) mit #pragmas...\n" | tee -a ${LOGS}/${2}.${LEVEL5}
+while read line
+do
+	grep -l '#pragma' $line >> ${LOGS}/${2}.${LEVEL5}
+done < ${HEADERFILES}
+
+# efuns, Verwendung beachten
+echo -ne "\n\nPruefe auf efuns, deren Verwendung beobachtet werden sollte...\n" |\
+	    tee -a ${LOGS}/${2}.${LEVEL5}
+while read line
+do
+	grep -Hn -f ${CHECKERHOME}/warn_efun.list $line \
+	>> ${LOGS}/${2}.${LEVEL5}
+done < ${LPCFILES}
+
+# Properties, Verwendung beachten
+echo -ne "\n\nPruefe auf Properties, deren Verwendung beobachtet werden
+sollte...\n" | tee -a ${LOGS}/${2}.${LEVEL5}
+while read line
+do
+	grep -Hn -f ${CHECKERHOME}/warn_prop.list $line \
+	>> ${LOGS}/${2}.${LEVEL5}
+done < ${LPCFILES}
+	
+# Pruefung auf static -> protected
+echo -ne "\n\nPruefe auf 'static' (-> 'protected')...\n" |\
+	    tee -a ${LOGS}/${2}.${LEVEL5}
+while read line
+do
+	grep -Hn 'static' $line >> ${LOGS}/${2}.${LEVEL5}
+done < ${LPCFILES}
+
+
+# LEVEL 10 CHECKS
+# Alte Rechtschreibung rules
+echo -ne "\n\nKleingeschriebenes Du/Dir/Dich...\n" |\
+	tee -a ${LOGS}/${2}.${LEVEL10}
+while read line
+do
+	grep -Hn ' \(du\|dich\|dir\) ' $line | cut -d : -f 1-2 | sort | \
+	uniq >> ${LOGS}/${2}.${LEVEL10}
+done < ${LPCFILES}
+
+# Pfadnamen bereinigen
+sed -i -e 's#.//#/#g' ${LOGS}/${2}.*
+
+echo -ne "\nCheck finished!\n"

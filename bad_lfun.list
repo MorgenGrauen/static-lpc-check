@@ -1,0 +1,11 @@
+TestAttributeLock
+command_me
+_query_ac
+_set_ac
+_query_item_damaged
+_set_item_damaged
+NoParaObjects
+catch_msg
+catch_tell
+AddInsertHook
+RemoveInsertHook

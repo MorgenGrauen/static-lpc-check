@@ -1,0 +1,5 @@
+SpellDefend(
+_item_damaged(
+reduce_food
+reduce_drink
+reduce_alcohol
