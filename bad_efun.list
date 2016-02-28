@@ -20,6 +20,6 @@ exclude_array
 @@.*@@
 enable_commands
 disable_commands
-efun:::*
+efun::*
 write
 say
